@@ -15,8 +15,12 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 /**
- * Implementation of DiscountService that handles e-commerce discount calculations.
- * Applies discounts in the order: brand/category → voucher → bank offers
+ * Implementation of DiscountService for e-commerce discount calculations.
+ * Applies discounts in prioritized order: brand/category → voucher → bank offers.
+ * Supports multiple discount types with proper validation and error handling.
+ * 
+ * @author Unifiz Assignment
+ * @version 1.0
  */
 @Slf4j
 @Service
@@ -25,6 +29,15 @@ public class DiscountServiceImpl implements DiscountService {
     
     private final DiscountRuleRepository discountRuleRepository;
     
+    /**
+     * Calculates discounts for cart items without voucher code.
+     * 
+     * @param cartItems list of items in the cart
+     * @param customer customer profile for eligibility checks
+     * @param paymentInfo optional payment information for bank offers
+     * @return calculated discount pricing with breakdown
+     * @throws DiscountCalculationException if calculation fails
+     */
     @Override
     public DiscountedPrice calculateCartDiscounts(
             List<CartItem> cartItems,
@@ -33,6 +46,17 @@ public class DiscountServiceImpl implements DiscountService {
         return calculateCartDiscounts(cartItems, customer, null, paymentInfo);
     }
     
+    /**
+     * Calculates comprehensive discounts for cart items with optional voucher.
+     * Applies discounts in sequence: brand/category, voucher, bank offers.
+     * 
+     * @param cartItems list of items in the cart
+     * @param customer customer profile for tier-based discounts
+     * @param discountCode optional voucher code to apply
+     * @param paymentInfo optional payment info for bank-specific offers
+     * @return complete discount breakdown with final pricing
+     * @throws DiscountCalculationException if calculation process fails
+     */
     @Override
     public DiscountedPrice calculateCartDiscounts(
             List<CartItem> cartItems,
@@ -75,6 +99,16 @@ public class DiscountServiceImpl implements DiscountService {
         }
     }
     
+    /**
+     * Validates discount code eligibility for given cart and customer.
+     * Checks code existence, validity period, customer tier, and cart applicability.
+     * 
+     * @param code discount code to validate
+     * @param cartItems cart items for applicability check
+     * @param customer customer profile for eligibility verification
+     * @return true if code is valid and applicable
+     * @throws DiscountValidationException if validation process fails
+     */
     @Override
     public boolean validateDiscountCode(
             String code,
@@ -122,6 +156,13 @@ public class DiscountServiceImpl implements DiscountService {
         }
     }
     
+    /**
+     * Validates required input parameters for discount calculations.
+     * 
+     * @param cartItems cart items to validate
+     * @param customer customer profile to validate
+     * @throws IllegalArgumentException if inputs are invalid
+     */
     private void validateInputs(List<CartItem> cartItems, CustomerProfile customer) {
         if (cartItems == null || cartItems.isEmpty()) {
             throw new IllegalArgumentException("Cart items cannot be null or empty");
@@ -131,6 +172,12 @@ public class DiscountServiceImpl implements DiscountService {
         }
     }
     
+    /**
+     * Calculates total original price of all cart items.
+     * 
+     * @param cartItems list of cart items with quantities
+     * @return total original price rounded to 2 decimal places
+     */
     private BigDecimal calculateOriginalPrice(List<CartItem> cartItems) {
         return cartItems.stream()
                 .map(item -> item.getProduct().getCurrentPrice().multiply(BigDecimal.valueOf(item.getQuantity())))
@@ -138,6 +185,15 @@ public class DiscountServiceImpl implements DiscountService {
                 .setScale(2, RoundingMode.HALF_UP);
     }
     
+    /**
+     * Applies brand and category discounts to eligible cart items.
+     * Calculates best available discounts for each product's brand and category.
+     * 
+     * @param cartItems cart items to apply discounts to
+     * @param currentPrice current cart price before brand/category discounts
+     * @param appliedDiscounts map to track applied discount details
+     * @return price after applying brand and category discounts
+     */
     private BigDecimal applyBrandAndCategoryDiscounts(
             List<CartItem> cartItems,
             BigDecimal currentPrice,
@@ -171,6 +227,17 @@ public class DiscountServiceImpl implements DiscountService {
         return currentPrice.subtract(totalDiscount).setScale(2, RoundingMode.HALF_UP);
     }
     
+    /**
+     * Applies voucher discount if valid and applicable to cart.
+     * Validates voucher code and applies discount to current price.
+     * 
+     * @param cartItems cart items for voucher applicability check
+     * @param customer customer profile for eligibility
+     * @param discountCode voucher code to apply
+     * @param currentPrice current cart price before voucher discount
+     * @param appliedDiscounts map to track applied discount details
+     * @return price after applying voucher discount
+     */
     private BigDecimal applyVoucherDiscount(
             List<CartItem> cartItems,
             CustomerProfile customer,
@@ -201,6 +268,17 @@ public class DiscountServiceImpl implements DiscountService {
         return currentPrice;
     }
     
+    /**
+     * Applies bank offers based on payment information.
+     * Checks for valid bank offers matching payment method.
+     * 
+     * @param cartItems cart items for context
+     * @param customer customer profile for eligibility
+     * @param paymentInfo payment information containing bank details
+     * @param currentPrice current cart price before bank offers
+     * @param appliedDiscounts map to track applied discount details
+     * @return price after applying bank offers
+     */
     private BigDecimal applyBankOffers(
             List<CartItem> cartItems,
             CustomerProfile customer,
@@ -228,6 +306,13 @@ public class DiscountServiceImpl implements DiscountService {
         return currentPrice;
     }
     
+    /**
+     * Finds the best discount from available rules for given amount.
+     * 
+     * @param rules list of applicable discount rules
+     * @param amount amount to calculate discount on
+     * @return highest applicable discount amount
+     */
     private BigDecimal calculateBestDiscount(List<DiscountRule> rules, BigDecimal amount) {
         return rules.stream()
                 .filter(this::isRuleValid)
@@ -236,6 +321,14 @@ public class DiscountServiceImpl implements DiscountService {
                 .orElse(BigDecimal.ZERO);
     }
     
+    /**
+     * Calculates discount amount based on rule configuration.
+     * Handles both percentage and fixed amount discounts with caps.
+     * 
+     * @param rule discount rule containing calculation parameters
+     * @param amount base amount to calculate discount on
+     * @return calculated discount amount
+     */
     private BigDecimal calculateDiscount(DiscountRule rule, BigDecimal amount) {
         BigDecimal discount;
         
@@ -259,6 +352,12 @@ public class DiscountServiceImpl implements DiscountService {
         return discount.setScale(2, RoundingMode.HALF_UP);
     }
     
+    /**
+     * Validates if discount rule is currently active and within validity period.
+     * 
+     * @param rule discount rule to validate
+     * @return true if rule is valid and active
+     */
     private boolean isRuleValid(DiscountRule rule) {
         if (!rule.isActive()) {
             return false;
@@ -277,6 +376,13 @@ public class DiscountServiceImpl implements DiscountService {
         return true;
     }
     
+    /**
+     * Checks if customer is eligible for the discount rule based on tier requirements.
+     * 
+     * @param rule discount rule with tier requirements
+     * @param customer customer profile with tier information
+     * @return true if customer meets tier requirements
+     */
     private boolean isCustomerEligible(DiscountRule rule, CustomerProfile customer) {
         if (rule.getRequiredCustomerTiers() == null || rule.getRequiredCustomerTiers().isEmpty()) {
             return true;
@@ -285,6 +391,13 @@ public class DiscountServiceImpl implements DiscountService {
         return rule.getRequiredCustomerTiers().contains(customer.getTier());
     }
     
+    /**
+     * Validates if voucher is applicable to cart items based on brand/category restrictions.
+     * 
+     * @param rule voucher rule with brand/category restrictions
+     * @param cartItems cart items to check against restrictions
+     * @return true if voucher applies to at least one cart item
+     */
     private boolean isVoucherApplicableToCart(DiscountRule rule, List<CartItem> cartItems) {
         // If no specific brand/category restrictions, voucher applies to entire cart
         if ((rule.getApplicableBrands() == null || rule.getApplicableBrands().isEmpty()) &&
@@ -312,6 +425,14 @@ public class DiscountServiceImpl implements DiscountService {
         return false;
     }
     
+    /**
+     * Builds human-readable discount summary message with total savings.
+     * 
+     * @param appliedDiscounts map of applied discounts with amounts
+     * @param originalPrice original cart price before discounts
+     * @param finalPrice final cart price after all discounts
+     * @return formatted discount summary message
+     */
     private String buildDiscountMessage(Map<String, BigDecimal> appliedDiscounts, 
                                        BigDecimal originalPrice, 
                                        BigDecimal finalPrice) {
