@@ -1,0 +1,7 @@
+com/unifiz/ecommerce/discount/service/DiscountServiceImplTest.class
+com/unifiz/ecommerce/discount/service/DiscountServiceImplTest$EdgeCasesAndErrorHandling.class
+com/unifiz/ecommerce/discount/integration/DiscountServiceIntegrationTest.class
+com/unifiz/ecommerce/discount/service/DiscountServiceImplTest$BankOfferTests.class
+com/unifiz/ecommerce/discount/service/DiscountServiceImplTest$VoucherValidationTests.class
+com/unifiz/ecommerce/discount/service/DiscountServiceImplTest$ComplexScenarios.class
+com/unifiz/ecommerce/discount/service/DiscountServiceImplTest$BasicDiscountCalculations.class
